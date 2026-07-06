@@ -1,6 +1,13 @@
 <mvc:View controllerName="brown.centralewmlogin.controller.Main"
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m">
-    <Page id="page" title="{i18n>title}">
+    <Page id="page" title="Central EWM Login">
+        <content>
+                <Button 
+                    id="openLoginButton"
+                    text="Open Login" 
+                    press=".onOpenLoginPress">
+                </Button>
+        </content>
     </Page>
 </mvc:View>

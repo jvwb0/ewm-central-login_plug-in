@@ -1,0 +1,90 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core">
+
+    <Popover
+        id="centralLoginPopover"
+        title="EWM Central Login">
+
+        <content>
+
+            <VBox
+                id="loginVBox"
+                class="sapUiSmallMargin">
+
+                <Label
+                    id="warehouseLabel"
+                    text="Warehouse" />
+
+                <ComboBox
+                    id="warehouseSelect">
+                    <items>
+                        <core:Item
+                            id="warehouseSelectItem001"
+                            key="001"
+                            text="001" />
+                        <core:Item
+                            id="warehouseSelectItem002"
+                            key="002"
+                            text="002" />
+                    </items>
+                </ComboBox>
+
+                <Label
+                    id="workCenterLabel"
+                    text="Work Center" />
+
+                <ComboBox
+                    id="workCenterSelect">
+                    <items>
+                        <core:Item
+                            id="workCenterSelectItemWC01"
+                            key="WC01"
+                            text="WC01" />
+                        <core:Item
+                            id="workCenterSelectItemWC02"
+                            key="WC02"
+                            text="WC02" />
+                    </items>
+                </ComboBox>
+
+                <Label
+                    id="resourceLabel"
+                    text="Resource" />
+
+                <ComboBox
+                    id="resourceSelect">
+                    <items>
+                        <core:Item
+                            id="resourceSelectItemR01"
+                            key="R01"
+                            text="Forklift 01" />
+                        <core:Item
+                            id="resourceSelectItemR02"
+                            key="R02"
+                            text="Forklift 02" />
+                    </items>
+                </ComboBox>
+
+            </VBox>
+
+        </content>
+
+        <footer>
+
+            <Toolbar
+                id="footerToolbar">
+
+                <ToolbarSpacer id="footerToolbarSpacer" />
+
+                <Button
+                    id="loginButton"
+                    text="Login" />
+
+            </Toolbar>
+
+        </footer>
+
+    </Popover>
+
+</core:FragmentDefinition>
