@@ -1,0 +1,24 @@
+{
+  "generationParameters": {
+    "generationDate": "Mon Jul 06 2026 12:00:22 GMT+0200 (Central European Summer Time)",
+    "generatorPlatform": "Visual Studio Code",
+    "serviceType": "None",
+    "metadataFilename": "",
+    "serviceUrl": "N/A",
+    "appName": "brown.centralewmlogin",
+    "appTitle": "EWM Central Login",
+    "appDescription": "Central SAP Fiori Launchpad plug-in for EWM user context and session management.",
+    "appNamespace": "",
+    "ui5Theme": "sap_horizon",
+    "ui5Version": "1.149.1",
+    "enableCodeAssist": false,
+    "enableEslint": false,
+    "enableTypeScript": true,
+    "showMockDataInfo": false,
+    "generatorVersion": "1.20.0",
+    "template": "Basic",
+    "generatorName": "SAP Fiori Application Generator",
+    "entityRelatedConfig": [],
+    "launchText": "To launch the generated application, run the following from the generated application root folder:\n\n```\n    npm start\n```"
+  }
+}
