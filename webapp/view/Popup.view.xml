@@ -1,6 +1,6 @@
-<core:FragmentDefinition
-    xmlns="sap.m"
-    xmlns:core="sap.ui.core">
+<mvc:View
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns="sap.m">
 
     <Popover
         id="centralLoginPopover"
@@ -20,10 +20,12 @@
                     id="warehouseSelect">
                     <items>
                         <core:Item
+                            xmlns:core="sap.ui.core"
                             id="warehouseSelectItem001"
                             key="001"
                             text="001" />
                         <core:Item
+                            xmlns:core="sap.ui.core"
                             id="warehouseSelectItem002"
                             key="002"
                             text="002" />
@@ -38,10 +40,12 @@
                     id="workCenterSelect">
                     <items>
                         <core:Item
+                            xmlns:core="sap.ui.core"
                             id="workCenterSelectItemWC01"
                             key="WC01"
                             text="WC01" />
                         <core:Item
+                            xmlns:core="sap.ui.core"
                             id="workCenterSelectItemWC02"
                             key="WC02"
                             text="WC02" />
@@ -56,10 +60,12 @@
                     id="resourceSelect">
                     <items>
                         <core:Item
+                            xmlns:core="sap.ui.core"
                             id="resourceSelectItemR01"
                             key="R01"
                             text="Forklift 01" />
                         <core:Item
+                            xmlns:core="sap.ui.core"
                             id="resourceSelectItemR02"
                             key="R02"
                             text="Forklift 02" />
@@ -87,4 +93,4 @@
 
     </Popover>
 
-</core:FragmentDefinition>
+</mvc:View>

@@ -1,5 +1,5 @@
 import Controller from "sap/ui/core/mvc/Controller";
-import Fragment from "sap/ui/core/Fragment";
+import XMLView from "sap/ui/core/mvc/XMLView";
 import Popover from "sap/m/Popover";
 import Event from "sap/ui/base/Event";
 import Button from "sap/m/Button";
@@ -11,6 +11,7 @@ import Button from "sap/m/Button";
 export default class Main extends Controller {
 
     private _oPopover: Popover | undefined;
+    private _oPopupView: XMLView | undefined;
 
     public onInit(): void { }
 
@@ -22,13 +23,19 @@ export default class Main extends Controller {
                 return;
             }
 
-            this._oPopover = await Fragment.load({
+            this._oPopupView = await XMLView.create({
                 id: oView.getId(),
-                name: "brown.centralewmlogin.fragments.CentralLoginPopover",
+                viewName: "brown.centralewmlogin.view.Popup",
                 controller: this
-            }) as Popover;
+            });
 
-            oView.addDependent(this._oPopover);
+            this._oPopover = this._oPopupView.byId("centralLoginPopover") as Popover | undefined;
+
+            if (!this._oPopover) {
+                return;
+            }
+
+            oView.addDependent(this._oPopupView);
         }
 
         const oButton = oEvent.getSource() as Button;
