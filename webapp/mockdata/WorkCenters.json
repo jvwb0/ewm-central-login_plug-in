@@ -1,0 +1,27 @@
+[
+    {
+        "warehouseNo": "0001",
+        "workCenterId": "DEKO",
+        "description": "DEKO"
+    },
+    {
+        "warehouseNo": "0001",
+        "workCenterId": "FTPD",
+        "description": "FTPD"
+    },
+    {
+        "warehouseNo": "0001",
+        "workCenterId": "KITO",
+        "description": "KITO"
+    },
+    {
+        "warehouseNo": "LN05",
+        "workCenterId": "COUN",
+        "description": "COUNT_HU"
+    },
+    {
+        "warehouseNo": "LN05",
+        "workCenterId": "VERP",
+        "description": "VERP"
+    }
+]
