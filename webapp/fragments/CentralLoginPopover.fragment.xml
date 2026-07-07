@@ -20,17 +20,12 @@
 
                 <ComboBox
                     id="warehouseSelect"
-                    selectedKey="{popover_state>/warehouseNo}">
-                    <items>
-                        <core:Item
-                            id="warehouseSelectItem001"
-                            key="001"
-                            text="001" />
-                        <core:Item
-                            id="warehouseSelectItem002"
-                            key="002"
-                            text="002" />
-                    </items>
+                    selectedKey="{popover_state>/warehouseNo}"
+                    selectionChange="onWarehouseChanged"
+                    items="{backend>/Warehouses}">
+                    <core:Item
+                        key="{backend>warehouseNo}"
+                        text="{backend>warehouseNo}" />
                 </ComboBox>
 
                 <Label
@@ -39,17 +34,11 @@
 
                 <ComboBox
                     id="workCenterSelect"
-                    selectedKey="{popover_state>/workCenterId}">
-                    <items>
-                        <core:Item
-                            id="workCenterSelectItemWC01"
-                            key="WC01"
-                            text="WC01" />
-                        <core:Item
-                            id="workCenterSelectItemWC02"
-                            key="WC02"
-                            text="WC02" />
-                    </items>
+                    selectedKey="{popover_state>/workCenterId}"
+                    items="{backend>/WorkCenters}">
+                    <core:Item
+                        key="{backend>workCenterId}"
+                        text="{backend>workCenterId}" />
                 </ComboBox>
 
                 <Label
@@ -58,17 +47,11 @@
 
                 <ComboBox
                     id="resourceSelect"
-                    selectedKey="{popover_state>/resourceId}">
-                    <items>
-                        <core:Item
-                            id="resourceSelectItemR01"
-                            key="R01"
-                            text="Forklift 01" />
-                        <core:Item
-                            id="resourceSelectItemR02"
-                            key="R02"
-                            text="Forklift 02" />
-                    </items>
+                    selectedKey="{popover_state>/resourceId}"
+                    items="{backend>/Resources}">
+                    <core:Item
+                        key="{backend>resourceId}"
+                        text="{backend>resourceId}" />
                 </ComboBox>
 
             </VBox>
