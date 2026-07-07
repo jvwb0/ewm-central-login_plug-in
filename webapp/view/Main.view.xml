@@ -2,12 +2,6 @@
     xmlns:mvc="sap.ui.core.mvc"
     xmlns="sap.m">
     <Page id="page" title="Central EWM Login">
-        <content>
-                <Button 
-                    id="openLoginButton"
-                    text="Open Login" 
-                    press=".onOpenLoginPress">
-                </Button>
-        </content>
+        <content />
     </Page>
 </mvc:View>
