@@ -19,7 +19,8 @@
                     text="Warehouse" />
 
                 <ComboBox
-                    id="warehouseSelect">
+                    id="warehouseSelect"
+                    selectedKey="{popover_state>/warehouseNo}">
                     <items>
                         <core:Item
                             id="warehouseSelectItem001"
@@ -37,7 +38,8 @@
                     text="Work Center" />
 
                 <ComboBox
-                    id="workCenterSelect">
+                    id="workCenterSelect"
+                    selectedKey="{popover_state>/workCenterId}">
                     <items>
                         <core:Item
                             id="workCenterSelectItemWC01"
@@ -55,7 +57,8 @@
                     text="Resource" />
 
                 <ComboBox
-                    id="resourceSelect">
+                    id="resourceSelect"
+                    selectedKey="{popover_state>/resourceId}">
                     <items>
                         <core:Item
                             id="resourceSelectItemR01"
