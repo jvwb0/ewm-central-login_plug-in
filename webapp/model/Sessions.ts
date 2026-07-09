@@ -1,3 +1,5 @@
+import type { PluginState } from "./Types";
+
 export default class Sessions {
     saveSession(state: PluginState): void {
         const dataToStore = { state: state, savedAt: Date.now() };       // Bundle the state with a timestamp into one object
@@ -5,7 +7,7 @@ export default class Sessions {
         localStorage.setItem("brown.centralewmlogin.session", asString); // Write it to browser storage under a key
     }
 
-    loadSession(): {}
+    loadSession(state: PluginState | null): void { }
 
     clearSession(): void {
         localStorage.removeItem("brown.centralewmlogin.session");
