@@ -11,6 +11,7 @@ import ComboBox from "sap/m/ComboBox";
 import { createDeviceModel } from "./model/models";
 import type { PopoverState } from "./model/Types";
 import { loadWarehouses, loadWorkCenters, loadResources, loadDefaultSettings } from "./model/MockBackend";
+import Sessions from "./model/Sessions";
 
 // Minimal type for the FLP shell renderer. Only typing what we actually use.
 type ShellRenderer = {
@@ -27,22 +28,15 @@ const POPOVER_FRAGMENT_NAME = "brown.centralewmlogin.fragments.CentralLoginPopov
  * @namespace brown.centralewmlogin
  */
 export default class Component extends BaseComponent {
-    // Cached popover instance, loaded once and reused on every open.
-    private loginPopover: Popover | undefined;
-    // Prevents the header button from being added more than once.
-    private headerButtonAdded = false;
-    public static metadata = {
-        manifest: "json", interfaces: ["sap.ui.core.IAsyncContentCreation"]
-    };
 
-    // Called once when the app starts. Sets up models and the header button.
+    private loginPopover: Popover | undefined;            // Cached popover instance, loaded once and reused on every open.
+    private headerButtonAdded = false;                  // Prevents the header button from being added more than once.
+    public static metadata = { manifest: "json", interfaces: ["sap.ui.core.IAsyncContentCreation"] };
+
     public init(): void {
         super.init();
         this.setModel(createDeviceModel(), "device");
 
-        // popover_state is what the user edits in the popover.
-        // It is separate from the committed session so Cancel works correctly.
-        // TwoWay means ComboBox changes update the model without extra code.
         const popoverState: PopoverState = {
             warehouseNo: "001",
             workCenterId: "WC01",
@@ -50,25 +44,15 @@ export default class Component extends BaseComponent {
             showUpdateButton: false
         };
         const popoverStateModel = new JSONModel(popoverState);
-        popoverStateModel.setDefaultBindingMode("TwoWay");
+        popoverStateModel.setDefaultBindingMode("TwoWay");        // TwoWay means ComboBox changes update the model
         this.setModel(popoverStateModel, "popover_state");
-
-        // Load warehouse/work center/resource data from mock JSON files into the "backend" model.
-        // The ComboBoxes bind to this model, so swapping in real OData later requires no XML changes.
-        this.loadBackendModel().catch((err: unknown) => {
-            console.error("MockBackend: failed to initialize backend model", err);
-        });
-
+        this.loadBackendModel().catch((err: unknown) => { console.error("MockBackend: failed to initialize backend model", err); });// Load warehouse/work center/resource data from "backend" model.
         this.getRouter().initialize();
         this.registerHeaderLoginButton();
     }
 
-    // Adds the login button to the right side of the FLP shell header.
-    // If the renderer is not ready yet we wait for it and retry.
-    private registerHeaderLoginButton(): void {
-        if (this.headerButtonAdded) {
-            return;
-        }
+    private registerHeaderLoginButton(): void {     // Adds the login button to the right side of the FLP shell header.
+        if (this.headerButtonAdded) { return; } // Prevents adding the button more than once.
 
         // sap.ushell.Container is only available inside a Fiori Launchpad.
         const ushellContainer = (window as {
@@ -86,9 +70,7 @@ export default class Component extends BaseComponent {
         const renderer = ushellContainer?.getRenderer?.("fiori2");
 
         if (!renderer) {
-            ushellContainer?.attachRendererCreatedEvent?.(() => {
-                this.registerHeaderLoginButton();
-            });
+            ushellContainer?.attachRendererCreatedEvent?.(() => { this.registerHeaderLoginButton(); });
             return;
         }
         // true = visible, false = show in all shell states not just the current one
@@ -106,8 +88,6 @@ export default class Component extends BaseComponent {
         this.headerButtonAdded = true;
     }
     // Loads all mock backend data in parallel and stores it in the "backend" named model.
-    // The model structure mirrors the future OData service entity sets so the UI is already
-    // coded against the contract that RAP will eventually provide.
     private async loadBackendModel(): Promise<void> {
         const [warehouses, workCenters, resources, defaultSettings] = await Promise.all([
             loadWarehouses(),
@@ -129,18 +109,11 @@ export default class Component extends BaseComponent {
         console.log("Header button clicked");
 
         const loginPopover = await this.getOrCreateLoginPopover();
-        // Shell header items are not always UI5 Controls so we fall back to the DOM node.
-        const source = oEvent.getSource() as Control | { getDomRef?: () => HTMLElement | null };
+        const source = oEvent.getSource() as Control | { getDomRef?: () => HTMLElement | null }; // Shell header items are not always UI5 Controls so we fall back to the DOM node.
         const opener = source instanceof Control ? source : source.getDomRef?.();
 
-        if (!loginPopover) {
-            return;
-        }
-
-        if (!opener) {
-            return;
-        }
-
+        if (!loginPopover) { return; }
+        if (!opener) { return; }
         loginPopover.openBy(opener);
     }
     // Called when the user picks a different warehouse.
@@ -185,9 +158,7 @@ export default class Component extends BaseComponent {
             }
         ) as Popover;
         // The popover lives outside the normal view hierarchy so we set the model directly.
-        if (popoverStateModel) {
-            this.loginPopover.setModel(popoverStateModel, "popover_state");
-        }
+        if (popoverStateModel) { this.loginPopover.setModel(popoverStateModel, "popover_state"); }
         // addDependent means the popover gets destroyed when the component is destroyed.
         this.getRootControl()?.addDependent(this.loginPopover);
         return this.loginPopover;
