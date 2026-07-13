@@ -1,4 +1,4 @@
-import type { ActiveSession } from "./Types";
+import type { ActiveSession, UserSettings } from "./Types";
 
 export default class Sessions {
 
@@ -29,5 +29,25 @@ export default class Sessions {
 
     clearSession(): void {
         localStorage.removeItem("brown.centralewmlogin.session");
+    }
+
+    // Saves the user's preferred warehouse/work center/resource with no expiry.
+    // These are used to pre-fill the popover on future visits even after logout.
+    saveSettings(settings: UserSettings): void {
+        localStorage.setItem("brown.centralewmlogin.settings", JSON.stringify(settings));
+    }
+
+    // Returns saved preferences, or null if none have been saved yet.
+    loadSettings(): UserSettings | null {
+        const raw = localStorage.getItem("brown.centralewmlogin.settings");
+        if (raw === null || raw === "") {
+            return null;
+        }
+        try {
+            return JSON.parse(raw) as UserSettings;
+        } catch (e) {
+            localStorage.removeItem("brown.centralewmlogin.settings"); // discard corrupt data
+            return null;
+        }
     }
 }
