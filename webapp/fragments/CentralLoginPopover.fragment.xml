@@ -20,7 +20,7 @@
 
                 <ComboBox
                     id="warehouseSelect"
-                    selectedKey="{popover_state>/warehouseNo}"
+                    selectedKey="{loginDraft>/warehouseNo}"
                     selectionChange="onWarehouseChanged"
                     items="{backend>/Warehouses}">
                     <core:Item
@@ -34,7 +34,7 @@
 
                 <ComboBox
                     id="workCenterSelect"
-                    selectedKey="{popover_state>/workCenterId}"
+                    selectedKey="{loginDraft>/workCenterId}"
                     items="{backend>/WorkCenters}">
                     <core:Item
                         key="{backend>workCenterId}"
@@ -47,7 +47,7 @@
 
                 <ComboBox
                     id="resourceSelect"
-                    selectedKey="{popover_state>/resourceId}"
+                    selectedKey="{loginDraft>/resourceId}"
                     items="{backend>/Resources}">
                     <core:Item
                         key="{backend>resourceId}"

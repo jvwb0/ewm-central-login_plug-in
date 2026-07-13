@@ -26,7 +26,8 @@ export interface DefaultSetting {
     resourceId: string;
 }
 
-export interface PluginState {
+// The committed login session - written on Login, read on app start to restore state.
+export interface ActiveSession {
     isLoggedIn: boolean;
     warehouseNo: string;
     workCenterId: string;
@@ -34,7 +35,8 @@ export interface PluginState {
     timestamp?: number;
 }
 
-export interface PopoverState {
+// The user's current edits in the popover - separate from the committed session so Cancel works.
+export interface LoginDraft {
     warehouseNo: string;
     workCenterId: string;
     resourceId: string;
