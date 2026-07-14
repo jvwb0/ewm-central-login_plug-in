@@ -1,20 +1,20 @@
-import type { ActiveSession, UserSettings } from "./Types";
+import type { PluginState, UserSettings } from "./Types";
 
-export default class Sessions {
+export default class SessionManager {
 
-    saveSession(state: ActiveSession): void {
+    saveSession(state: PluginState): void {
         const dataToStore = { state: state, savedAt: Date.now() };       // Bundle the state with a timestamp into one object
         const asString = JSON.stringify(dataToStore);                    // Convert the object to a string (localStorage only holds strings)
         localStorage.setItem("brown.centralewmlogin.session", asString); // Write it to browser storage under a key
     }
 
-    loadSession(): ActiveSession | null {
+    loadSession(): PluginState | null {
         const raw = localStorage.getItem("brown.centralewmlogin.session");
         if (!raw) {
-            return null; // if null, undefined, "", 0, false, NaN 
+            return null; // if null, undefined, "", 0, false, NaN
         }
         try {
-            const parsed = JSON.parse(raw) as { state: ActiveSession; savedAt: number }; // Parse the string back into an object
+            const parsed = JSON.parse(raw) as { state: PluginState; savedAt: number }; // Parse the string back into an object
             if (Date.now() - parsed.savedAt > 24 * 60 * 60 * 1000) { // If the saved session is older than 24 hours, discard it
                 this.clearSession();
                 return null;
