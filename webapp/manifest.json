@@ -14,6 +14,15 @@
       "id": "@sap/generator-fiori:basic",
       "version": "1.20.0",
       "toolsId": "2bea3394-ddf2-4877-afbd-08256d3ff85b"
+    },
+    "dataSources": {
+      "mainService": {
+        "uri": "/sap/opu/odata4/sap/zbro_fiori_login_bind/srvd/sap/zbro_fiori_login_srv/0001/",
+        "type": "OData",
+        "settings": {
+          "odataVersion": "4.0"
+        }
+      }
     }
   },
   "sap.ui": {
@@ -50,6 +59,15 @@
         "type": "sap.ui.model.resource.ResourceModel",
         "settings": {
           "bundleName": "brown.centralewmlogin.i18n.i18n"
+        }
+      },
+      "backend": {
+        "type": "sap.ui.model.odata.v4.ODataModel",
+        "dataSource": "mainService",
+        "settings": {
+          "synchronizationMode": "None",
+          "operationMode": "Server",
+          "autoExpandSelect": true
         }
       }
     },
