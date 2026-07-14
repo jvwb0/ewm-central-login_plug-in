@@ -22,10 +22,13 @@
                     id="warehouseSelect"
                     selectedKey="{loginDraft>/warehouseNo}"
                     selectionChange="onWarehouseChanged"
-                    items="{backend>/Warehouses}">
+                    
+                    items="{
+                        path: 'backend>/Warehouses'
+                    }">
                     <core:Item
-                        key="{backend>warehouseNo}"
-                        text="{backend>warehouseNo}" />
+                        key="{backend>WarehouseNo}"
+                        text="{backend>Description}" />
                 </ComboBox>
 
                 <Label
@@ -35,10 +38,10 @@
                 <ComboBox
                     id="workCenterSelect"
                     selectedKey="{loginDraft>/workCenterId}"
-                    items="{backend>/WorkCenters}">
+                    items="{backend>/Workcenters}">
                     <core:Item
-                        key="{backend>workCenterId}"
-                        text="{backend>workCenterId}" />
+                        key="{backend>Workstation}"
+                        text="{backend>Description}" />
                 </ComboBox>
 
                 <Label
@@ -50,8 +53,8 @@
                     selectedKey="{loginDraft>/resourceId}"
                     items="{backend>/Resources}">
                     <core:Item
-                        key="{backend>resourceId}"
-                        text="{backend>resourceId}" />
+                        key="{backend>Rsrc}"
+                        text="{backend>Rsrc}" />
                 </ComboBox>
 
             </VBox>
