@@ -10,7 +10,6 @@ import ListBinding from "sap/ui/model/ListBinding";
 import ComboBox from "sap/m/ComboBox";
 import { createDeviceModel } from "./model/models";
 import type { LoginDraft, ActiveSession, UserSettings } from "./model/Types";
-import { loadWarehouses, loadWorkCenters, loadResources, loadDefaultSettings } from "./model/MockBackend";
 import Sessions from "./model/Sessions";
 import MessageToast from "sap/m/MessageToast";
 
@@ -72,8 +71,6 @@ export default class Component extends BaseComponent {
         const loginDraftModel = new JSONModel(loginDraft);
         loginDraftModel.setDefaultBindingMode("TwoWay"); // TwoWay: ComboBox changes update the model automatically.
         this.setModel(loginDraftModel, "loginDraft");
-
-        this.loadBackendModel().catch((err: unknown) => { console.error("MockBackend: failed to load", err); });
         this.getRouter().initialize();
         this.registerHeaderLoginButton();
     }
@@ -193,16 +190,6 @@ export default class Component extends BaseComponent {
             false  // all shell states, not just current
         );
         this.headerButtonAdded = true;
-    }
-
-    private async loadBackendModel(): Promise<void> {
-        const [warehouses, workCenters, resources, defaultSettings] = await Promise.all([
-            loadWarehouses(),
-            loadWorkCenters(),
-            loadResources(),
-            loadDefaultSettings()
-        ]);
-        this.setModel(new JSONModel({ Warehouses: warehouses, WorkCenters: workCenters, Resources: resources, DefaultSettings: defaultSettings }), "backend");
     }
 
     private async getOrCreateLoginPopover(): Promise<Popover | undefined> {
