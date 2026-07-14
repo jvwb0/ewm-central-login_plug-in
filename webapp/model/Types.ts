@@ -35,6 +35,14 @@ export interface ActiveSession {
     timestamp?: number;
 }
 
+// Permanent user preferences - written by Save button, never expire.
+// Used to pre-fill the popover even when no active session exists.
+export interface UserSettings {
+    warehouseNo: string;
+    workCenterId: string;
+    resourceId: string;
+}
+
 // The user's current edits in the popover - separate from the committed session so Cancel works.
 export interface LoginDraft {
     warehouseNo: string;
