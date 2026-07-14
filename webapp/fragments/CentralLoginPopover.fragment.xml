@@ -65,9 +65,34 @@
 
                 <ToolbarSpacer id="footerToolbarSpacer" />
 
+                <!-- Save: stores current selection as permanent preferences, does not log in -->
+                <Button
+                    id="saveButton"
+                    text="Save"
+                    icon="sap-icon://save"
+                    press="onSavePress" />
+
+                <!-- Login: only visible when not logged in -->
                 <Button
                     id="loginButton"
-                    text="Login" />
+                    text="Login"
+                    type="Emphasized"
+                    visible="{= ${activeSession>/isLoggedIn} === false }"
+                    press="onLoginPress" />
+
+                <!-- Logout: only visible when logged in -->
+                <Button
+                    id="logoutButton"
+                    text="Logout"
+                    icon="sap-icon://log"
+                    visible="{activeSession>/isLoggedIn}"
+                    press="onLogoutPress" />
+
+                <!-- Cancel: always visible -->
+                <Button
+                    id="cancelButton"
+                    text="Cancel"
+                    press="onCancelPress" />
 
             </Toolbar>
 
