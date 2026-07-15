@@ -9,8 +9,8 @@ import FilterOperator from "sap/ui/model/FilterOperator";
 import ListBinding from "sap/ui/model/ListBinding";
 import ComboBox from "sap/m/ComboBox";
 import { createDeviceModel } from "./model/models";
-import type { LoginDraft, ActiveSession, UserSettings } from "./model/Types";
-import Sessions from "./model/Sessions";
+import type { PluginState, PopoverState, UserSettings } from "./model/Types";
+import SessionManager from "./model/Sessions";
 import MessageToast from "sap/m/MessageToast";
 
 // Minimal type for the FLP shell renderer. Only typing what we actually use.
@@ -21,193 +21,316 @@ type ShellRenderer = {
         isCurrentState: boolean
     ) => void;
 };
-
 const POPOVER_FRAGMENT_NAME = "brown.centralewmlogin.fragments.CentralLoginPopover";
 
-/**
+//Singleton to prevent multiple active FLP plugin instances.
+let oActiveInstance: Component | null = null;
+/****************************************************************************************
  * @namespace brown.centralewmlogin
  */
 export default class Component extends BaseComponent {
 
-    // --- Fields -----------------------------------------------------------------
-
-    private loginPopover: Popover | undefined;  // Cached popover, loaded once and reused.
-    private headerButtonAdded = false;          // Prevents adding the header button twice.
-    private sessions!: Sessions;                // Initialized at the start of init() - UI5 calls init() before class fields are set.
-
+    private _oPopover?: Popover;
+    private _bHeaderButtonAdded = false;
+    private _oSessionManager!: SessionManager;
     public static metadata = { manifest: "json", interfaces: ["sap.ui.core.IAsyncContentCreation"] };
 
     // --- Lifecycle --------------------------------------------------------------
 
     public init(): void {
+
         super.init();
-        this.sessions = new Sessions(); // Must be first - UI5 calls init() before class field initializers run.
+
+        if (oActiveInstance) { return; }
+        oActiveInstance = this;
+
+        this._oSessionManager = new SessionManager();
+
         this.setModel(createDeviceModel(), "device");
-        const savedSession = this.sessions.loadSession();
 
-        // Initialize the active session model. If a saved session exists, use it; otherwise, create a new default session.
-        let activeSession: ActiveSession;
-        if (savedSession !== null) {
-            activeSession = savedSession;
-        } else {
-            activeSession = { isLoggedIn: false, warehouseNo: "", workCenterId: "", resourceId: "" };
-        }
-        const activeSessionModel = new JSONModel(activeSession);
-        this.setModel(activeSessionModel, "activeSession");
+        // Create initial data
+        const oPluginState = this._createInitialPluginState();
+        const oPopoverState = this._createInitialPopoverState(oPluginState);
 
-        // Initialize the login draft model.
-        // Priority: active session > saved settings > empty defaults.
-        let loginDraft: LoginDraft;
-        if (activeSession.isLoggedIn) {
-            loginDraft = { warehouseNo: activeSession.warehouseNo, workCenterId: activeSession.workCenterId, resourceId: activeSession.resourceId, showUpdateButton: false };
-        } else {
-            const savedSettings = this.sessions.loadSettings();
-            if (savedSettings !== null) {
-                loginDraft = { warehouseNo: savedSettings.warehouseNo, workCenterId: savedSettings.workCenterId, resourceId: savedSettings.resourceId, showUpdateButton: false };
-            } else {
-                loginDraft = { warehouseNo: "", workCenterId: "", resourceId: "", showUpdateButton: false };
-            }
-        }
-        const loginDraftModel = new JSONModel(loginDraft);
-        loginDraftModel.setDefaultBindingMode("TwoWay"); // TwoWay: ComboBox changes update the model automatically.
-        this.setModel(loginDraftModel, "loginDraft");
+        // Create models
+        const oStateModel = new JSONModel(oPluginState);
+        const oPopoverStateModel = new JSONModel(oPopoverState);
+        oPopoverStateModel.setDefaultBindingMode("TwoWay"); // Two-way binding so that changes in the popover are reflected in the model.
+
+        // Register models
+        this.setModel(
+            oStateModel,
+            "state"
+        );
+
+        this.setModel(
+            oPopoverStateModel,
+            "popover_state"
+        );
+
         this.getRouter().initialize();
         this.registerHeaderLoginButton();
+    }
+
+    // Get state from session, otherwise create default state
+    private _createInitialPluginState(): PluginState {
+
+        const oSavedSession = this._oSessionManager.loadSession();
+
+        if (oSavedSession) { return oSavedSession; }
+
+        return {
+            isLoggedIn: false,
+            warehouseNo: "",
+            workCenterId: "",
+            resourceId: ""
+        };
+    }
+
+    private _createInitialPopoverState(oPluginState: PluginState): PopoverState {
+
+        if (oPluginState.isLoggedIn) {
+            return {
+                warehouseNo: oPluginState.warehouseNo,
+                workCenterId: oPluginState.workCenterId,
+                resourceId: oPluginState.resourceId,
+                showUpdateButton: false
+            };
+        }
+
+        const oSavedSettings = this._oSessionManager.loadSettings();
+
+        if (oSavedSettings) {
+            return {
+                warehouseNo: oSavedSettings.warehouseNo,
+                workCenterId: oSavedSettings.workCenterId,
+                resourceId: oSavedSettings.resourceId,
+                showUpdateButton: false
+            };
+        }
+        return {
+            warehouseNo: "",
+            workCenterId: "",
+            resourceId: "",
+            showUpdateButton: false
+        };
     }
 
     // --- Event Handlers ---------------------------------------------------------
 
     public async onOpenLoginPress(oEvent: Event): Promise<void> {
-        const loginPopover = await this.getOrCreateLoginPopover();
-        const source = oEvent.getSource() as Control | { getDomRef?: () => HTMLElement | null }; // Shell items are not always UI5 Controls.
-        const opener = source instanceof Control ? source : source.getDomRef?.();
-        if (!loginPopover || !opener) { return; }
-        loginPopover.openBy(opener);
+
+        // Lazy-load and cache the popover on first use.
+        this._oPopover = await this.getOrCreateLoginPopover();
+
+        // FLP header items are not always UI5 Controls.
+        const oSource = oEvent.getSource() as
+            Control | {
+                getDomRef?: () => HTMLElement | null;
+            };
+
+        let oOpener:
+            Control |
+            HTMLElement |
+            null |
+            undefined;
+
+        // Determine which object should be used to anchor the popover.
+        if (oSource instanceof Control) {
+            oOpener = oSource;
+        } else if (oSource.getDomRef) {
+            oOpener = oSource.getDomRef();
+        } else {
+            oOpener = undefined;
+        }
+
+        // Cannot open without a popover instance or anchor element.
+        if (!this._oPopover) { return; }
+        if (!oOpener) { return; }
+
+        this._oPopover.openBy(oOpener);
     }
 
     public onWarehouseChanged(oEvent: Event): void {
-        const selectedWarehouseNo = (oEvent.getSource() as ComboBox).getSelectedKey();
-        const fragmentId = this.createId("centralLoginPopover");
-        const workCenterCombo = Fragment.byId(fragmentId, "workCenterSelect") as ComboBox | undefined;
-        const resourceCombo = Fragment.byId(fragmentId, "resourceSelect") as ComboBox | undefined;
 
-        if (selectedWarehouseNo) {
-            const filter = new Filter("warehouseNo", FilterOperator.EQ, selectedWarehouseNo);
-            (workCenterCombo?.getBinding("items") as ListBinding | undefined)?.filter([filter]);
-            (resourceCombo?.getBinding("items") as ListBinding | undefined)?.filter([filter]);
-        } else {
-            (workCenterCombo?.getBinding("items") as ListBinding | undefined)?.filter([]); // No warehouse: show all.
-            (resourceCombo?.getBinding("items") as ListBinding | undefined)?.filter([]);
-        }
-
-        const loginDraft = this.getModel("loginDraft") as JSONModel;
-        loginDraft.setProperty("/workCenterId", ""); // Dependent selections are no longer valid.
-        loginDraft.setProperty("/resourceId", "");
+        const sWarehouseNo = (oEvent.getSource() as ComboBox).getSelectedKey();
+        this._applyWarehouseFilter(sWarehouseNo);
+        this._resetDependentSelections();
     }
 
     public onLoginPress(): void {
-        const loginDraft = this.getModel("loginDraft") as JSONModel;
-        const activeSession = this.getModel("activeSession") as JSONModel;
 
-        // Update the active session with the values from the draft.
-        activeSession.setProperty("/isLoggedIn", true);
-        activeSession.setProperty("/warehouseNo", loginDraft.getProperty("/warehouseNo"));
-        activeSession.setProperty("/workCenterId", loginDraft.getProperty("/workCenterId"));
-        activeSession.setProperty("/resourceId", loginDraft.getProperty("/resourceId"));
-
-        // Save the active session to localStorage.
-        this.sessions.saveSession(activeSession.getData());
-
-        // Also persist the selected values as permanent preferences for future visits.
-        const settings: UserSettings = { warehouseNo: loginDraft.getProperty("/warehouseNo"), workCenterId: loginDraft.getProperty("/workCenterId"), resourceId: loginDraft.getProperty("/resourceId") };
-        this.sessions.saveSettings(settings);
-
-        MessageToast.show("Login successful");
-        this.loginPopover?.close();
+        this._performLogin();
+        this._oPopover?.close();
     }
 
     public onLogoutPress(): void {
-        const activeSession = this.getModel("activeSession") as JSONModel;
 
-        // Clear the active session.
-        activeSession.setProperty("/isLoggedIn", false);
-        activeSession.setProperty("/warehouseNo", "");
-        activeSession.setProperty("/workCenterId", "");
-        activeSession.setProperty("/resourceId", "");
-
-        // Clear the saved session from localStorage.
-        this.sessions.clearSession();
-        MessageToast.show("Logout successful");
-        this.loginPopover?.close();
+        this._performLogoff();
+        this._oPopover?.close();
     }
 
     public onSavePress(): void {
-        const loginDraft = this.getModel("loginDraft") as JSONModel;
-        const settings: UserSettings = {
-            warehouseNo: loginDraft.getProperty("/warehouseNo"),
-            workCenterId: loginDraft.getProperty("/workCenterId"),
-            resourceId: loginDraft.getProperty("/resourceId")
-        };
-        this.sessions.saveSettings(settings);
+
+        this._saveUserSettings();
         MessageToast.show("Preferences saved.");
     }
 
     public onCancelPress(): void {
-        this.loginPopover?.close(); // Discard edits - just close without saving anything.
+
+        this._oPopover?.close(); // Discard edits - just close without saving anything.
     }
 
     // --- Private Helpers --------------------------------------------------------
+    private _performLogin(): void {
+
+        const oState = this._stateModel();
+        const oPopoverState = this._popoverStateModel();
+
+        oState.setProperty("/isLoggedIn", true);
+
+        oState.setProperty("/warehouseNo", oPopoverState.getProperty("/warehouseNo"));
+
+        oState.setProperty("/workCenterId", oPopoverState.getProperty("/workCenterId"));
+
+        oState.setProperty("/resourceId", oPopoverState.getProperty("/resourceId"));
+
+        this._oSessionManager.saveSession(oState.getData());
+        this._saveUserSettings();
+        MessageToast.show("Login successful");
+    }
+
+    private _performLogoff(): void {
+
+        const oState = this._stateModel();
+        oState.setData({
+            isLoggedIn: false,
+            warehouseNo: "",
+            workCenterId: "",
+            resourceId: ""
+        });
+        this._oSessionManager.clearSession();
+
+        MessageToast.show("Logout successful");
+    }
+
+    private _saveUserSettings(): void {
+        const oPopoverState = this._popoverStateModel();
+        const oSettings: UserSettings = {
+            warehouseNo: oPopoverState.getProperty("/warehouseNo"),
+            workCenterId: oPopoverState.getProperty("/workCenterId"),
+            resourceId: oPopoverState.getProperty("/resourceId")
+        };
+        this._oSessionManager.saveSettings(oSettings);
+    }
+
+    private _stateModel(): JSONModel {
+        return this.getModel("state") as JSONModel;
+    }
+
+    private _popoverStateModel(): JSONModel {
+        return this.getModel("popover_state") as JSONModel;
+    }
+
+    // onWarehouseChanged Helper: Applies a filter to the Work Center and Resource ComboBoxes based on the selected Warehouse.
+    private _applyWarehouseFilter(sWarehouseNo: string): void {
+        const sFragmentId = this.createId("centralLoginPopover");
+        const oWorkCenterCombo = Fragment.byId(sFragmentId, "workCenterSelect") as ComboBox | undefined;
+        const oResourceCombo = Fragment.byId(sFragmentId, "resourceSelect") as ComboBox | undefined;
+        const oWorkCenterBinding = oWorkCenterCombo?.getBinding("items") as ListBinding | undefined;
+        const oResourceBinding = oResourceCombo?.getBinding("items") as ListBinding | undefined;
+
+        if (!sWarehouseNo) {
+            oWorkCenterBinding?.filter([]);
+            oResourceBinding?.filter([]);
+            return;
+        }
+
+        const oFilter = new Filter(
+            "WarehouseNo",
+            FilterOperator.EQ,
+            sWarehouseNo
+        );
+
+        oWorkCenterBinding?.filter([oFilter]);
+        oResourceBinding?.filter([oFilter]);
+    }
+
+    private _resetDependentSelections(): void {
+
+        this._popoverStateModel().setProperty("/workCenterId", "");
+        this._popoverStateModel().setProperty("/resourceId", "");
+    }
 
     private registerHeaderLoginButton(): void {
-        if (this.headerButtonAdded) { return; }
 
-        const ushellContainer = (window as {
+        if (this._bHeaderButtonAdded) { return; }
+
+        const oUshellContainer = (window as {
             sap?: {
                 ushell?: {
                     Container?: {
-                        getRenderer?: (name: string) => ShellRenderer | undefined;
-                        attachRendererCreatedEvent?: (callback: () => void) => void;
+                        getRenderer?: (
+                            name: string
+                        ) => ShellRenderer | undefined;
+
+                        attachRendererCreatedEvent?: (
+                            callback: () => void
+                        ) => void;
                     };
                 };
             };
         }).sap?.ushell?.Container;
 
-        const renderer = ushellContainer?.getRenderer?.("fiori2");
+        const oRenderer = oUshellContainer?.getRenderer?.("fiori2");
 
-        if (!renderer) {
-            ushellContainer?.attachRendererCreatedEvent?.(() => { this.registerHeaderLoginButton(); }); // Retry when renderer is ready.
+        if (!oRenderer) {
+            oUshellContainer?.attachRendererCreatedEvent?.(() => { this.registerHeaderLoginButton(); });
             return;
         }
 
-        renderer.addHeaderEndItem(
-            {
-                id: this.createId("openLoginButton"),
-                icon: "sap-icon://BusinessSuiteInAppSymbols/icon-refinery",
-                tooltip: "Open Login",
-                press: this.onOpenLoginPress.bind(this)
-            },
-            true,  // visible
-            false  // all shell states, not just current
+        oRenderer.addHeaderEndItem({
+            id: this.createId("openLoginButton"),
+            icon: "sap-icon://BusinessSuiteInAppSymbols/icon-refinery",
+            tooltip: "Open Login",
+            press: this.onOpenLoginPress.bind(this)
+        },
+            true,
+            false
         );
-        this.headerButtonAdded = true;
+
+        this._bHeaderButtonAdded = true;
     }
 
-    private async getOrCreateLoginPopover(): Promise<Popover | undefined> {
-        if (this.loginPopover) { return this.loginPopover; }
+    private async getOrCreateLoginPopover(): Promise<Popover> {
 
-        this.loginPopover = await Fragment.load({
+        if (this._oPopover) { return this._oPopover; }
+
+        this._oPopover = await Fragment.load({
             id: this.createId("centralLoginPopover"),
             name: POPOVER_FRAGMENT_NAME,
             controller: this
         }) as Popover;
 
-        const loginDraftModel = this.getModel("loginDraft");
-        if (loginDraftModel) { this.loginPopover.setModel(loginDraftModel, "loginDraft"); } // Popover is outside the view hierarchy.
+        const oPopoverStateModel = this.getModel("popover_state");
+        if (oPopoverStateModel) {
+            this._oPopover.setModel(oPopoverStateModel, "popover_state");
+        }
 
-        const activeSessionModel = this.getModel("activeSession");
-        if (activeSessionModel) { this.loginPopover.setModel(activeSessionModel, "activeSession"); }
+        const oStateModel = this.getModel("state");
+        if (oStateModel) {
+            this._oPopover.setModel(oStateModel, "state");
+        }
 
-        this.getRootControl()?.addDependent(this.loginPopover); // Destroyed with the component.
-        return this.loginPopover;
+        const oBackendModel = this.getModel("backend");
+        if (oBackendModel) {
+            this._oPopover.setModel(oBackendModel, "backend");
+        }
+
+        const oRootControl = this.getRootControl();
+        if (oRootControl) {
+            oRootControl.addDependent(this._oPopover);
+        }
+        return this._oPopover;
     }
 }
