@@ -12,6 +12,8 @@ import { createDeviceModel } from "./model/models";
 import type { PluginState, PopoverState, UserSettings } from "./model/Types";
 import SessionManager from "./model/Sessions";
 import MessageToast from "sap/m/MessageToast";
+import EventBus from "sap/ui/core/EventBus";
+import SapPcpWebSocket from "sap/ui/core/ws/SapPcpWebSocket";
 
 // Minimal type for the FLP shell renderer. Only typing what we actually use.
 type ShellRenderer = {
@@ -33,12 +35,15 @@ export default class Component extends BaseComponent {
     private _oPopover?: Popover;
     private _bHeaderButtonAdded = false;
     private _oSessionManager!: SessionManager;
+
+    private _oSocket?: SapPcpWebSocket;
+    private _oEventBus?: EventBus;
+
     public static metadata = { manifest: "json", interfaces: ["sap.ui.core.IAsyncContentCreation"] };
 
     // --- Lifecycle --------------------------------------------------------------
 
     public init(): void {
-
         super.init();
 
         if (oActiveInstance) { return; }
@@ -69,12 +74,12 @@ export default class Component extends BaseComponent {
         );
 
         this.getRouter().initialize();
-        this.registerHeaderLoginButton();
+        this._registerHeaderLoginButton();
+        this._connectSocket();
     }
 
     // Get state from session, otherwise create default state
     private _createInitialPluginState(): PluginState {
-
         const oSavedSession = this._oSessionManager.loadSession();
 
         if (oSavedSession) { return oSavedSession; }
@@ -88,7 +93,7 @@ export default class Component extends BaseComponent {
     }
 
     private _createInitialPopoverState(oPluginState: PluginState): PopoverState {
-
+        // If already logged in, use the active session values.
         if (oPluginState.isLoggedIn) {
             return {
                 warehouseNo: oPluginState.warehouseNo,
@@ -97,7 +102,7 @@ export default class Component extends BaseComponent {
                 showUpdateButton: false
             };
         }
-
+        // Otherwise fall back to the user's saved preferences.
         const oSavedSettings = this._oSessionManager.loadSettings();
 
         if (oSavedSettings) {
@@ -116,12 +121,61 @@ export default class Component extends BaseComponent {
         };
     }
 
+    private _connectSocket(): void {
+
+        this._oSocket = new SapPcpWebSocket("/sap/bc/apc/sap/zewm_bro_fiori_ext/");
+
+        this._oSocket.attachOpen(() => {
+            console.log("APC socket connected");
+            this._oSocket?.send("TESTTTTTTING");
+        });
+
+        this._oSocket.attachError((oEvent: Event) => {
+            console.error("APC socket error", oEvent);
+        });
+
+        this._oSocket.attachClose(() => {
+            console.log("APC socket closed");
+        });
+
+        this._oSocket.attachMessage((oEvent) => {
+            const sMessage = oEvent.getParameter("data");
+
+            // getParameter() may return undefined if the parameter is missing, so we gotta check for that
+            if (!sMessage) {
+                return;
+            }
+
+            this._handleOnMessage(sMessage);
+        }
+        );
+
+    }
+
+    private _disconnectSocket(): void {
+
+        // implemented later
+
+    }
+
+    private _requestLogin(): void {
+
+        // implemented later
+
+    }
+
+    private _requestLogoff(): void {
+
+        // implemented later
+
+    }
+
+
     // --- Event Handlers ---------------------------------------------------------
 
     public async onOpenLoginPress(oEvent: Event): Promise<void> {
-
         // Lazy-load and cache the popover on first use.
-        this._oPopover = await this.getOrCreateLoginPopover();
+        this._oPopover = await this._getOrCreateLoginPopover();
 
         // FLP header items are not always UI5 Controls.
         const oSource = oEvent.getSource() as
@@ -152,32 +206,29 @@ export default class Component extends BaseComponent {
     }
 
     public onWarehouseChanged(oEvent: Event): void {
-
         const sWarehouseNo = (oEvent.getSource() as ComboBox).getSelectedKey();
         this._applyWarehouseFilter(sWarehouseNo);
+        // Changing the warehouse invalidates dependent selections.
         this._resetDependentSelections();
     }
 
     public onLoginPress(): void {
-
+        // Commit the currently selected popover values to the active plugin state.
         this._performLogin();
         this._oPopover?.close();
     }
 
     public onLogoutPress(): void {
-
         this._performLogoff();
         this._oPopover?.close();
     }
 
     public onSavePress(): void {
-
         this._saveUserSettings();
         MessageToast.show("Preferences saved.");
     }
 
     public onCancelPress(): void {
-
         this._oPopover?.close(); // Discard edits - just close without saving anything.
     }
 
@@ -186,23 +237,22 @@ export default class Component extends BaseComponent {
 
         const oState = this._stateModel();
         const oPopoverState = this._popoverStateModel();
-
+        // Commit popover values to the active plugin state.
         oState.setProperty("/isLoggedIn", true);
-
         oState.setProperty("/warehouseNo", oPopoverState.getProperty("/warehouseNo"));
-
         oState.setProperty("/workCenterId", oPopoverState.getProperty("/workCenterId"));
-
         oState.setProperty("/resourceId", oPopoverState.getProperty("/resourceId"));
 
+        // Persist the active login session.
         this._oSessionManager.saveSession(oState.getData());
         this._saveUserSettings();
         MessageToast.show("Login successful");
     }
 
     private _performLogoff(): void {
-
         const oState = this._stateModel();
+
+        // Clear the committed login state.
         oState.setData({
             isLoggedIn: false,
             warehouseNo: "",
@@ -232,7 +282,7 @@ export default class Component extends BaseComponent {
         return this.getModel("popover_state") as JSONModel;
     }
 
-    // onWarehouseChanged Helper: Applies a filter to the Work Center and Resource ComboBoxes based on the selected Warehouse.
+    // Restrict Work Centers and Resources to the selected warehouse.
     private _applyWarehouseFilter(sWarehouseNo: string): void {
         const sFragmentId = this.createId("centralLoginPopover");
         const oWorkCenterCombo = Fragment.byId(sFragmentId, "workCenterSelect") as ComboBox | undefined;
@@ -240,29 +290,34 @@ export default class Component extends BaseComponent {
         const oWorkCenterBinding = oWorkCenterCombo?.getBinding("items") as ListBinding | undefined;
         const oResourceBinding = oResourceCombo?.getBinding("items") as ListBinding | undefined;
 
+        // No warehouse selected: show all values.
         if (!sWarehouseNo) {
             oWorkCenterBinding?.filter([]);
             oResourceBinding?.filter([]);
             return;
         }
-
-        const oFilter = new Filter(
-            "WarehouseNo",
-            FilterOperator.EQ,
-            sWarehouseNo
-        );
-
+        const oFilter = new Filter("WarehouseNo", FilterOperator.EQ, sWarehouseNo);
         oWorkCenterBinding?.filter([oFilter]);
         oResourceBinding?.filter([oFilter]);
     }
 
     private _resetDependentSelections(): void {
-
         this._popoverStateModel().setProperty("/workCenterId", "");
         this._popoverStateModel().setProperty("/resourceId", "");
     }
-
-    private registerHeaderLoginButton(): void {
+    // Central routing point for all backend/WebSocket messages.
+    private _handleOnMessage(sMessage: string): void {
+        switch (sMessage) {
+            case "logonSuccess":
+                this._performLogin();
+                break;
+            case "logoff":
+                this._performLogoff();
+                break;
+        }
+    }
+    // why methods after this point dont have __ before their name?
+    private _registerHeaderLoginButton(): void {
 
         if (this._bHeaderButtonAdded) { return; }
 
@@ -283,9 +338,10 @@ export default class Component extends BaseComponent {
         }).sap?.ushell?.Container;
 
         const oRenderer = oUshellContainer?.getRenderer?.("fiori2");
-
+        // FLP renderer may not be available during initial startup.
         if (!oRenderer) {
-            oUshellContainer?.attachRendererCreatedEvent?.(() => { this.registerHeaderLoginButton(); });
+            // Retry button registration once the renderer becomes available
+            oUshellContainer?.attachRendererCreatedEvent?.(() => { this._registerHeaderLoginButton(); });
             return;
         }
 
@@ -301,10 +357,12 @@ export default class Component extends BaseComponent {
 
         this._bHeaderButtonAdded = true;
     }
+    // Reuse the existing popover instance once it has been loaded.
+    private async _getOrCreateLoginPopover(): Promise<Popover> {
 
-    private async getOrCreateLoginPopover(): Promise<Popover> {
-
-        if (this._oPopover) { return this._oPopover; }
+        if (this._oPopover) {
+            return this._oPopover;
+        }
 
         this._oPopover = await Fragment.load({
             id: this.createId("centralLoginPopover"),
@@ -312,6 +370,8 @@ export default class Component extends BaseComponent {
             controller: this
         }) as Popover;
 
+        // The popover exists outside the normal view hierarchy and must
+        // therefore receive models explicitly.
         const oPopoverStateModel = this.getModel("popover_state");
         if (oPopoverStateModel) {
             this._oPopover.setModel(oPopoverStateModel, "popover_state");
