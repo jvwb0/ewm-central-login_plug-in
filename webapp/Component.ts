@@ -35,9 +35,10 @@ export default class Component extends BaseComponent {
     private _oPopover?: Popover;
     private _bHeaderButtonAdded = false;
     private _oSessionManager!: SessionManager;
-
     private _oSocket?: SapPcpWebSocket;
     private _oEventBus?: EventBus;
+    private _bSocketOpen = false;
+    private _bLoginPending = false;
 
     public static metadata = { manifest: "json", interfaces: ["sap.ui.core.IAsyncContentCreation"] };
 
@@ -75,7 +76,7 @@ export default class Component extends BaseComponent {
 
         this.getRouter().initialize();
         this._registerHeaderLoginButton();
-        this._connectSocket();
+        //this._connectSocket();
     }
 
     // Get state from session, otherwise create default state
@@ -122,46 +123,66 @@ export default class Component extends BaseComponent {
     }
 
     private _connectSocket(): void {
+        if (this._oSocket) { return; } // Already connected
 
-        this._oSocket = new SapPcpWebSocket("/sap/bc/apc/sap/zewm_bro_fiori_ext/");
+        const oPopoverState = this._popoverStateModel();
+        const sWarehouseNo = oPopoverState.getProperty("/warehouseNo") as string;
+        const sResourceId = oPopoverState.getProperty("/resourceId") as string;
+
+        if (!sWarehouseNo || !sResourceId) { // Cannot connect without warehouse and resource.
+            MessageToast.show("Please select a warehouse and resource.");
+            return;
+        }
+        const sUrl = "/sap/bc/apc/sap/zewm_bro_fiori_ext_plugin" +
+            `?warehouseNo=${encodeURIComponent(sWarehouseNo)}` +
+            `&resourceId=${encodeURIComponent(sResourceId)}`;
+
+        this._bLoginPending = true;
+        this._oSocket = new SapPcpWebSocket(sUrl);
 
         this._oSocket.attachOpen(() => {
-            console.log("APC socket connected");
-            this._oSocket?.send("TESTTTTTTING");
+            this._bSocketOpen = true;
+            console.log("APC Socket connection established.");
+        });
+
+        this._oSocket.attachMessage((oEvent: Event) => {
+            const sMessage = oEvent.getParameter("data") as string | undefined;
+
+            if (!sMessage) { return; }
+            // Handle the incoming message here.
+            console.log("APC Message:", sMessage);
+            this._handleOnMessage(sMessage);
         });
 
         this._oSocket.attachError((oEvent: Event) => {
-            console.error("APC socket error", oEvent);
+            console.error("APC Socket error:", oEvent);
+
+            this._bLoginPending = false;
+            MessageToast.show("Socket error occurred. Please check the console for details.");
         });
 
         this._oSocket.attachClose(() => {
-            console.log("APC socket closed");
+            console.log("APC Socket connection closed.");
+            this._bSocketOpen = false;
+            this._bLoginPending = false;
+            this._oSocket = undefined;
         });
-
-        this._oSocket.attachMessage((oEvent) => {
-            const sMessage = oEvent.getParameter("data");
-
-            // getParameter() may return undefined if the parameter is missing, so we gotta check for that
-            if (!sMessage) {
-                return;
-            }
-
-            this._handleOnMessage(sMessage);
-        }
-        );
-
     }
 
     private _disconnectSocket(): void {
+        const oSocket = this._oSocket;
 
-        // implemented later
+        this._oSocket = undefined;
+        this._bSocketOpen = false;
+        this._bLoginPending = false;
 
+        if (oSocket) { oSocket.close(); } // Close the socket if it exists. This will trigger the 'close' event and clean up the connection.
     }
 
     private _requestLogin(): void {
-
-        // implemented later
-
+        if (this._bLoginPending) { return; } // Prevent multiple login requests
+        if (this._oSocket) { MessageToast.show("Already connected. Please log off first."); return; }
+        this._connectSocket();
     }
 
     private _requestLogoff(): void {
@@ -174,7 +195,6 @@ export default class Component extends BaseComponent {
     // --- Event Handlers ---------------------------------------------------------
 
     public async onOpenLoginPress(oEvent: Event): Promise<void> {
-        // Lazy-load and cache the popover on first use.
         this._oPopover = await this._getOrCreateLoginPopover();
 
         // FLP header items are not always UI5 Controls.
@@ -213,9 +233,7 @@ export default class Component extends BaseComponent {
     }
 
     public onLoginPress(): void {
-        // Commit the currently selected popover values to the active plugin state.
-        this._performLogin();
-        this._oPopover?.close();
+        this._requestLogin();
     }
 
     public onLogoutPress(): void {
@@ -234,17 +252,20 @@ export default class Component extends BaseComponent {
 
     // --- Private Helpers --------------------------------------------------------
     private _performLogin(): void {
-
         const oState = this._stateModel();
         const oPopoverState = this._popoverStateModel();
         // Commit popover values to the active plugin state.
-        oState.setProperty("/isLoggedIn", true);
-        oState.setProperty("/warehouseNo", oPopoverState.getProperty("/warehouseNo"));
-        oState.setProperty("/workCenterId", oPopoverState.getProperty("/workCenterId"));
-        oState.setProperty("/resourceId", oPopoverState.getProperty("/resourceId"));
-
-        // Persist the active login session.
+        const oConfirmedState: PluginState = {
+            isLoggedIn: true,
+            warehouseNo: oPopoverState.getProperty("/warehouseNo") as string,
+            workCenterId: oPopoverState.getProperty("/workCenterId") as string,
+            resourceId: oPopoverState.getProperty("/resourceId") as string
+        };
+        // Commit the backend-confirmed login state 
+        oState.setData(oConfirmedState);
+        // Persist the confirmed active session.
         this._oSessionManager.saveSession(oState.getData());
+        //keep for now, we can decide later if we want to save user settings on login or not.
         this._saveUserSettings();
         MessageToast.show("Login successful");
     }
@@ -296,7 +317,7 @@ export default class Component extends BaseComponent {
             oResourceBinding?.filter([]);
             return;
         }
-        const oFilter = new Filter("WarehouseNo", FilterOperator.EQ, sWarehouseNo);
+        const oFilter = new Filter("Lgnum", FilterOperator.EQ, sWarehouseNo);
         oWorkCenterBinding?.filter([oFilter]);
         oResourceBinding?.filter([oFilter]);
     }
@@ -309,11 +330,21 @@ export default class Component extends BaseComponent {
     private _handleOnMessage(sMessage: string): void {
         switch (sMessage) {
             case "logonSuccess":
+                this._bLoginPending = false;
                 this._performLogin();
+                this._oPopover?.close();
+                break;
+            case "logonFail":
+                this._bLoginPending = false;
+                MessageToast.show("Login failed. Please check your selections and try again.");
+                this._disconnectSocket();
                 break;
             case "logoff":
-                this._performLogoff();
+                this._bLoginPending = false;
+                this._disconnectSocket();
                 break;
+            default:
+                console.warn("Unknown APC message:", sMessage);
         }
     }
     // why methods after this point dont have __ before their name?
