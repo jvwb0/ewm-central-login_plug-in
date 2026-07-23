@@ -13,6 +13,7 @@ server:
         backend:
           - path: /sap
             url: "https://xlknpvt505.stmk.rbgat.net:8080"
+            ws: true
         ui5:
           path:
             - /resources

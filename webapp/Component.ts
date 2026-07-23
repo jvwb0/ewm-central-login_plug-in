@@ -137,16 +137,17 @@ export default class Component extends BaseComponent {
             `?warehouseNo=${encodeURIComponent(sWarehouseNo)}` +
             `&resourceId=${encodeURIComponent(sResourceId)}`;
 
-        this._bLoginPending = true;
-        this._oSocket = new SapPcpWebSocket(sUrl);
 
+        this._bLoginPending = true;
+        this._oSocket = new SapPcpWebSocket(sUrl, SapPcpWebSocket.SUPPORTED_PROTOCOLS.v10);
         this._oSocket.attachOpen(() => {
             this._bSocketOpen = true;
             console.log("APC Socket connection established.");
         });
 
-        this._oSocket.attachMessage((oEvent: Event) => {
-            const sMessage = oEvent.getParameter("data") as string | undefined;
+        this._oSocket.attachMessage((oEvent) => {
+            const oParameters = oEvent.getParameters() as { data?: string; pcpFields?: Record<string, string> };
+            const sMessage = oParameters.data;
 
             if (!sMessage) { return; }
             // Handle the incoming message here.

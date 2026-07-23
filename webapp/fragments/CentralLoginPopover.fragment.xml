@@ -20,13 +20,14 @@
 
                 <ComboBox
                     id="warehouseSelect"
-                    selectedKey="{loginDraft>/warehouseNo}"
+                    selectedKey="{popover_state>/warehouseNo}"
                     selectionChange="onWarehouseChanged"
                     
                     items="{
                         path: 'backend>/Warehouses'
                     }">
                     <core:Item
+                        id="warehouseItem"
                         key="{backend>WarehouseNo}"
                         text="{backend>Description}" />
                 </ComboBox>
@@ -37,9 +38,10 @@
 
                 <ComboBox
                     id="workCenterSelect"
-                    selectedKey="{loginDraft>/workCenterId}"
+                    selectedKey="{popover_state>/workCenterId}"
                     items="{backend>/Workcenters}">
                     <core:Item
+                        id="workCenterItem"
                         key="{backend>Workstation}"
                         text="{backend>Description}" />
                 </ComboBox>
@@ -50,9 +52,10 @@
 
                 <ComboBox
                     id="resourceSelect"
-                    selectedKey="{loginDraft>/resourceId}"
+                    selectedKey="{popover_state>/resourceId}"
                     items="{backend>/Resources}">
                     <core:Item
+                        id="resourceItem"
                         key="{backend>Rsrc}"
                         text="{backend>Rsrc}" />
                 </ComboBox>
@@ -80,7 +83,7 @@
                     id="loginButton"
                     text="Login"
                     type="Emphasized"
-                    visible="{= ${activeSession>/isLoggedIn} === false }"
+                    visible="{= ${state>/isLoggedIn} === false }"
                     press="onLoginPress" />
 
                 <!-- Logout: only visible when logged in -->
@@ -88,7 +91,7 @@
                     id="logoutButton"
                     text="Logout"
                     icon="sap-icon://log"
-                    visible="{activeSession>/isLoggedIn}"
+                    visible="{state>/isLoggedIn}"
                     press="onLogoutPress" />
 
                 <!-- Cancel: always visible -->
